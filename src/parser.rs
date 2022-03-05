@@ -1,19 +1,16 @@
-use std::fs;
-use std::path::PathBuf;
-use std::io::{
-    BufRead,
-    BufReader
-};
-use std::io;
 use lazy_static::lazy_static;
 use regex::Regex;
-
+use std::collections::HashSet;
+use std::fs;
+use std::io;
+use std::io::{BufRead, BufReader};
+use std::path::PathBuf;
 
 #[derive(Debug)]
 pub struct ParsedFile {
     pub title: Option<String>,
     pub path: PathBuf,
-    pub tags: Vec<String>,
+    pub tags: HashSet<String>,
 }
 
 /// Detects any hash tags in the provided line.
@@ -23,20 +20,20 @@ fn detect_tags(line: &str) -> Vec<String> {
      * if this function is called several times.
      */
     lazy_static! {
-        static ref TAG_RE:Regex = Regex::new(r"#[a-z0-9_]+").unwrap();
+        static ref TAG_RE: Regex = Regex::new(r"#([a-z0-9_]+)").unwrap();
     }
     let mut tags = Vec::new();
-    for tag in TAG_RE.find_iter(line) {
-        tags.push(tag.as_str().to_string());
+    for tag in TAG_RE.captures_iter(line) {
+        tags.push(tag[1].to_string());
     }
     tags
 }
 
 fn detect_title(line: &str) -> Option<String> {
     lazy_static! {
-        static ref TITLE_RE:Regex = Regex::new(r"^# (.*)$").unwrap();
+        static ref TITLE_RE: Regex = Regex::new(r"^# (.*)$").unwrap();
     }
-    let captures = TITLE_RE.captures(line)?;  
+    let captures = TITLE_RE.captures(line)?;
     let title = &captures[1];
     Some(title.to_string())
 }
@@ -44,12 +41,12 @@ fn detect_title(line: &str) -> Option<String> {
 fn parse_file(path: &PathBuf) -> io::Result<ParsedFile> {
     let f = fs::File::open(path)?;
     let reader = BufReader::new(f);
-    let mut tags = Vec::new();
-    let mut title:Option<String> = None;
+    let mut tags = HashSet::new();
+    let mut title: Option<String> = None;
     for line_or_err in reader.lines() {
         let line = line_or_err?;
         for tag in detect_tags(&line) {
-            tags.push(tag);
+            tags.insert(tag);
         }
         if title == None {
             title = detect_title(&line);
